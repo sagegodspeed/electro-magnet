@@ -7,6 +7,11 @@ swift build --disable-sandbox -c release --scratch-path .build --cache-path /pri
 app_path="$PWD/dist/Electro Magnet.app"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 cp .build/release/ElectroMagnet "$app_path/Contents/MacOS/ElectroMagnet"
+strip -S "$app_path/Contents/MacOS/ElectroMagnet"
+if LC_ALL=C /usr/bin/grep -aEq '/(Users|home)/' "$app_path/Contents/MacOS/ElectroMagnet"; then
+    print -u2 "Refusing to package an executable containing local home-directory paths."
+    exit 1
+fi
 cp Assets/AppIcon/ElectroMagnet.icns "$app_path/Contents/Resources/ElectroMagnet.icns"
 cat > "$app_path/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

@@ -29,4 +29,10 @@ Before a general-public release, check:
 5. Exercise display sleep/wake and confirm Magnet works before and after Restore.
 6. Include changed/duplicate browser titles, missing windows, minimum sizes and denied/revoked Accessibility permission.
 
-The icon has been compiled into ICNS, unpacked and checked at all ten standard sizes. Resource/Info.plist packaging and strict signing were verified in an isolated copy of the previously tested executable. The artwork update did not change Swift source. A fresh local Swift build on 2026-10-06 was blocked by an unaccepted Xcode license; the installed working app was not replaced.
+The icon has been compiled into ICNS, unpacked and checked at all ten standard sizes. Resource/Info.plist packaging and strict signing were verified in an isolated copy of the previously tested executable. The artwork update did not change Swift source. Xcode's license prompt initially blocked a fresh build on 2026-10-06; a later build using the separately installed Command Line Tools passed. The installed working app was not replaced.
+
+## Release privacy checks
+
+On 2026-10-06, the preview download was replaced after its debug symbol metadata was found to include local build paths. The cleanup removed those paths; all 33 loaded Mach-O sections, including executable code, remained byte-for-byte identical. The replacement ZIP was downloaded from GitHub and checked for archive integrity, matching SHA-256, strict code signing, local home-directory paths and credential patterns. Saved layouts and raw machine-specific test records are excluded.
+
+`Tools/build-app.sh` now strips debug metadata before signing and refuses to package an executable that still contains local home-directory paths. A fresh build passed this check and strict signature validation. Normal copyright attribution, the app identifier and public GitHub identity remain public metadata.
