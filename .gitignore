@@ -1,0 +1,13 @@
+.build/
+dist/
+.DS_Store
+docs/evidence/
+docs/local/
+docs/VERIFICATION.md
+docs/RELEASE_READINESS.md
+.env
+.env.*
+*.p8
+*.p12
+*.key
+*.pem
