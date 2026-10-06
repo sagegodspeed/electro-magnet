@@ -1,7 +1,9 @@
 #!/bin/zsh
 set -eu
 cd "${0:A:h:h}"
-fixture_path="$PWD/dist/Electro Magnet Test Windows.app"
+fixture_stage=$(mktemp -d /private/tmp/electromagnet-fixture-build.XXXXXX)
+trap 'rm -rf "$fixture_stage"' EXIT
+fixture_path="$fixture_stage/Electro Magnet Test Windows.app"
 mkdir -p "$fixture_path/Contents/MacOS"
 swiftc -target arm64-apple-macosx14.0 -module-cache-path /private/tmp/electromagnet-module-cache Tools/TestWindows.swift -o "$fixture_path/Contents/MacOS/TestWindows"
 cat > "$fixture_path/Contents/Info.plist" <<'PLIST'
@@ -17,3 +19,5 @@ cat > "$fixture_path/Contents/Info.plist" <<'PLIST'
 PLIST
 xattr -dr com.apple.FinderInfo "$fixture_path" 2>/dev/null || true
 codesign --force --sign - "$fixture_path"
+mkdir -p "$PWD/dist"
+ditto --noextattr --norsrc "$fixture_path" "$PWD/dist/Electro Magnet Test Windows.app"

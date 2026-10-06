@@ -51,9 +51,26 @@ import ElectroMagnetCore
             guard restarted.layouts == [first, second] else { throw RuntimeError.message("Restart persistence mismatch.") }
             let freshEngine = LayoutEngine(); freshEngine.onlyPID = pid
             let reportA = try await freshEngine.restore(restarted.layouts[0])
+            evidence["firstRestoreGeometry"] = try WindowAccess.inventory(onlyPID: pid).windows.map { window in
+                ["windowID": window.identity.windowID, "frame": [window.frame.x, window.frame.y, window.frame.width, window.frame.height]] as [String: Any]
+            }
             steps.append(["test": "restore-first-after-utility-restart-and-title-change", "passed": reportA.restored == 2 && reportA.skipped == 0, "report": reportA.text])
             let reportB = try await freshEngine.restore(restarted.layouts[1])
             steps.append(["test": "switch-to-second-layout", "passed": reportB.restored == 2 && reportB.skipped == 0, "report": reportB.text])
+            var ambiguous = first
+            for index in ambiguous.windows.indices {
+                ambiguous.windows[index].identity.pid = -1
+                ambiguous.windows[index].identity.title = "Changed browser tab title"
+                ambiguous.windows[index].identity.identifier = nil
+                ambiguous.windows[index].identity.document = nil
+            }
+            let ambiguousReport = try await freshEngine.restore(ambiguous)
+            steps.append(["test": "ambiguous-windows-stay-put", "passed": ambiguousReport.skipped == 2 && ambiguousReport.restored == 0 && ambiguousReport.details.allSatisfy { $0.contains("identity is not unique") }, "report": ambiguousReport.text])
+            var closedApp = first
+            closedApp.windows = [first.windows[0]]
+            closedApp.windows[0].identity.bundleID = "test.closed-application"
+            let closedReport = try await freshEngine.restore(closedApp)
+            steps.append(["test": "closed-app-specific-reason", "passed": closedReport.skipped == 1 && closedReport.text.contains("application is not running"), "report": closedReport.text])
             try Data("close-second".utf8).write(to: directory.appendingPathComponent("fixture-command"), options: .atomic)
             try await Task.sleep(nanoseconds: 350_000_000)
             let missingReport = try await freshEngine.restore(first)
@@ -71,6 +88,10 @@ import ElectroMagnetCore
             steps.append(["test": "simulated-disconnected-display", "passed": disconnectedReport.adjusted == 1 && disconnectedReport.skipped == 0, "report": disconnectedReport.text])
             let final = try await freshEngine.restore(first)
             steps.append(["test": "restore-original-after-fallback", "passed": final.restored == 1 && final.skipped == 1, "report": final.text])
+            try Data("minimize-first".utf8).write(to: directory.appendingPathComponent("fixture-command"), options: .atomic)
+            try await Task.sleep(nanoseconds: 350_000_000)
+            let minimized = try await freshEngine.restore(first)
+            steps.append(["test": "minimized-window-specific-reason", "passed": minimized.restored == 0 && minimized.skipped == 2 && minimized.text.contains("minimized window"), "report": minimized.text])
             evidence["passed"] = steps.allSatisfy { $0["passed"] as? Bool == true }
         } catch {
             evidence["passed"] = false; evidence["error"] = error.localizedDescription

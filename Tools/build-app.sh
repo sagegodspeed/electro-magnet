@@ -4,7 +4,9 @@ cd "${0:A:h:h}"
 export CLANG_MODULE_CACHE_PATH=/private/tmp/electromagnet-module-cache
 export SWIFTPM_MODULECACHE_OVERRIDE=/private/tmp/electromagnet-module-cache
 swift build --disable-sandbox -c release --scratch-path .build --cache-path /private/tmp/electromagnet-swift-cache --config-path /private/tmp/electromagnet-swift-config --security-path /private/tmp/electromagnet-swift-security -Xswiftc -module-cache-path -Xswiftc /private/tmp/electromagnet-module-cache
-app_path="$PWD/dist/Electro Magnet.app"
+app_stage=$(mktemp -d /private/tmp/electromagnet-app-build.XXXXXX)
+trap 'rm -rf "$app_stage"' EXIT
+app_path="$app_stage/Electro Magnet.app"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 cp .build/release/ElectroMagnet "$app_path/Contents/MacOS/ElectroMagnet"
 strip -S "$app_path/Contents/MacOS/ElectroMagnet"
@@ -23,8 +25,8 @@ cat > "$app_path/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>Electro Magnet</string>
 <key>CFBundleIconFile</key><string>ElectroMagnet.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>0.1.1</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
@@ -32,4 +34,6 @@ cat > "$app_path/Contents/Info.plist" <<'PLIST'
 PLIST
 xattr -dr com.apple.FinderInfo "$app_path" 2>/dev/null || true
 codesign --force --sign - --identifier com.jeremyscott.ElectroMagnet "$app_path"
-print "Built $app_path"
+mkdir -p "$PWD/dist"
+ditto --noextattr --norsrc "$app_path" "$PWD/dist/Electro Magnet.app"
+print "Built $PWD/dist/Electro Magnet.app"

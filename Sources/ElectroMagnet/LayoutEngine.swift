@@ -53,15 +53,16 @@ struct RestoreReport {
         let displays = WindowAccess.displays()
         let desktops = try spaces.desktops()
         guard let fallback = displays.first else { throw RuntimeError.message("No available display was found.") }
-        let matches = WindowMatcher.matches(layout.windows.map(\.identity), in: inventory.windows.map(\.identity))
+        let matches = WindowMatcher.matches(layout.windows.map(\.identity), in: inventory.identities)
         var report = RestoreReport()
         for (saved, match) in zip(layout.windows, matches) {
             let label = Self.label(saved.identity)
-            guard case .found(let index) = match else {
+            if let reason = skipReason(saved.identity, match: match, inventory: inventory) {
                 report.skipped += 1
-                report.details.append("\(label): skipped, \(match == .ambiguous ? "ambiguous window match" : "app closed, window missing, or window unsupported")")
+                report.details.append("\(label): skipped, \(reason)")
                 continue
             }
+            guard case .found(let index) = match else { continue }
             let window = inventory.windows[index]
             var adjustments: [String] = []
             let display = displays.first(where: { $0.uuid == saved.displayUUID }) ?? fallback
@@ -114,6 +115,55 @@ struct RestoreReport {
             }
         }
         return report
+    }
+
+    private func skipReason(_ saved: WindowIdentity, match: WindowMatch, inventory: WindowInventory) -> String? {
+        switch match {
+        case .found(let index):
+            return index < inventory.windows.count ? nil : inventory.excluded[index - inventory.windows.count].reason
+        case .ambiguous:
+            return "window identity is not unique; no window was selected"
+        case .missing:
+            guard let app = inventory.applications[saved.bundleID] else { return "application is not running" }
+            if app.hidden { return "application is hidden" }
+            let exposed = inventory.identities.filter { $0.bundleID == saved.bundleID }
+            if exposed.isEmpty, app.windowListError == nil {
+                return "application is running but no ordinary window is accessible; show its window or Space and Restore again"
+            }
+            if let profile = WindowMatcher.browserProfile(saved),
+               !exposed.contains(where: { WindowMatcher.browserProfile($0) == profile }) {
+                return "no accessible window for browser profile “\(profile)”; show that profile's window or Space and Restore again"
+            }
+            if app.uninspectedCount > 0 {
+                return "no reliable match; some application windows could not be inspected. Visit the saved window's Space and Restore again"
+            }
+            if let error = app.windowListError {
+                return "window list could not be read (Accessibility error \(error))"
+            }
+            if app.pid != saved.pid || app.started != saved.processStarted {
+                return "application relaunched; no unique document, identifier, account, title or browser profile matches the saved window"
+            }
+            return "saved window is no longer present among the application's accessible windows"
+        }
+    }
+
+    /// Read-only inspection uses exactly the same discovery and matching as Restore.
+    func diagnostics(_ layout: Layout) throws -> [String: Any] {
+        let inventory = try WindowAccess.inventory(onlyPID: onlyPID)
+        let matches = WindowMatcher.matches(layout.windows.map(\.identity), in: inventory.identities)
+        let rows = zip(layout.windows, matches).map { saved, match -> [String: Any] in
+            var row: [String: Any] = ["application": saved.identity.appName, "savedWindowID": saved.identity.windowID,
+                                     "reason": skipReason(saved.identity, match: match, inventory: inventory) ?? "matchable"]
+            row["currentWindows"] = inventory.identities.enumerated().filter { $0.element.bundleID == saved.identity.bundleID }.map { index, window in
+                ["windowID": window.windowID, "title": window.title, "document": window.document ?? "",
+                 "identifier": window.identifier ?? "", "browserProfile": WindowMatcher.browserProfile(window) ?? "",
+                 "contextKeys": Array(WindowMatcher.windowContextKeys(window)).sorted(),
+                 "exclusion": index < inventory.windows.count ? "" : inventory.excluded[index - inventory.windows.count].reason] as [String: Any]
+            }
+            if case .found(let index) = match { row["matchedWindowID"] = inventory.identities[index].windowID }
+            return row
+        }
+        return ["layout": layout.name, "accessibilityGranted": WindowAccess.trusted, "windows": rows, "inventoryNotes": inventory.omissions]
     }
     static func label(_ identity: WindowIdentity) -> String {
         identity.title.isEmpty ? identity.appName : "\(identity.appName): \(identity.title)"

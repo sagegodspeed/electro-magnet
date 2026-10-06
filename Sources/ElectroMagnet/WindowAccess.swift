@@ -18,6 +18,17 @@ struct Display {
 struct WindowInventory {
     var windows: [LiveWindow] = []
     var omissions: [String] = []
+    var excluded: [(identity: WindowIdentity, reason: String)] = []
+    var applications: [String: ApplicationWindowStatus] = [:]
+    var identities: [WindowIdentity] { windows.map(\.identity) + excluded.map(\.identity) }
+}
+
+struct ApplicationWindowStatus {
+    let pid: Int32
+    let started: Date?
+    let hidden: Bool
+    var windowListError: Int32?
+    var uninspectedCount = 0
 }
 
 @MainActor enum WindowAccess {
@@ -105,11 +116,35 @@ struct WindowInventory {
         return result.isValid ? result : nil
     }
     static func unsupportedReason(_ element: AXUIElement) -> String? {
+        if attribute(element, kAXMinimizedAttribute) as? Bool == true { return "minimized window" }
         guard attribute(element, kAXSubroleAttribute) as? String == kAXStandardWindowSubrole else { return "unsupported window type" }
         if attribute(element, "AXFullScreen") as? Bool == true { return "native fullscreen window" }
-        if attribute(element, kAXMinimizedAttribute) as? Bool == true { return "minimized window" }
         guard writable(element, kAXPositionAttribute), writable(element, kAXSizeAttribute) else { return "window does not support moving and resizing" }
         return nil
+    }
+
+    /// Inspect browser chrome only. Never enter page content or change the selected tab.
+    private static func tabContextKeys(_ window: AXUIElement, bundleID: String) -> [String] {
+        guard ["com.apple.Safari", "com.google.Chrome", "com.microsoft.edgemac"].contains(bundleID) else { return [] }
+        var pending: [(AXUIElement, Int, Bool)] = [(window, 0, false)]
+        var keys = Set<String>(), inspected = 0
+        let deadline = Date().addingTimeInterval(0.2)
+        while let (element, depth, inTabs) = pending.popLast(), inspected < 500, Date() < deadline {
+            inspected += 1
+            let role = attribute(element, kAXRoleAttribute) as? String ?? ""
+            guard role != "AXWebArea" else { continue }
+            let subrole = attribute(element, kAXSubroleAttribute) as? String ?? ""
+            if subrole == "AXTabButton" || role == "AXTab" || (inTabs && role == kAXRadioButtonRole) {
+                for name in [kAXTitleAttribute, kAXDescriptionAttribute] {
+                    if let title = attribute(element, name) as? String,
+                       let key = WindowMatcher.contextKey(title: title, bundleID: bundleID) { keys.insert(key) }
+                }
+                continue
+            }
+            guard depth < 8, let children = attribute(element, kAXChildrenAttribute) as? [AXUIElement] else { continue }
+            pending.append(contentsOf: children.prefix(100).reversed().map { ($0, depth + 1, inTabs || role == kAXTabGroupRole) })
+        }
+        return keys.sorted()
     }
 
     static func inventory(onlyPID: Int32? = nil) throws -> WindowInventory {
@@ -131,7 +166,11 @@ struct WindowInventory {
                 ($0[kCGWindowLayer as String] as? NSNumber)?.intValue == 0
             }
             let cgIDs = Set(appCG.compactMap { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value })
-            var windows = attribute(element, kAXWindowsAttribute) as? [AXUIElement] ?? []
+            var value: CFTypeRef?
+            let windowListStatus = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &value)
+            var status = ApplicationWindowStatus(pid: app.processIdentifier, started: app.launchDate, hidden: app.isHidden)
+            if windowListStatus != .success { status.windowListError = windowListStatus.rawValue }
+            var windows = value as? [AXUIElement] ?? []
             if let previous = cached[app.processIdentifier], previous.started == app.launchDate {
                 windows.append(contentsOf: previous.elements.filter { cgIDs.contains($0.key) }.map(\.value))
             }
@@ -149,17 +188,31 @@ struct WindowInventory {
                 liveElements[id] = window
                 let title = attribute(window, kAXTitleAttribute) as? String ?? ""
                 let label = title.isEmpty ? name : "\(name): \(title)"
-                if let reason = unsupportedReason(window) { result.omissions.append("\(label): \(reason)"); continue }
-                if app.isHidden { result.omissions.append("\(label): application is hidden"); continue }
-                guard let rect = frame(window) else { result.omissions.append("\(label): bounds could not be read"); continue }
-                result.windows.append(LiveWindow(identity: WindowIdentity(bundleID: bundleID, appName: name,
+                let contexts = attribute(window, kAXSubroleAttribute) as? String == kAXStandardWindowSubrole
+                    ? tabContextKeys(window, bundleID: bundleID) : []
+                let identity = WindowIdentity(bundleID: bundleID, appName: name,
                     pid: app.processIdentifier, processStarted: app.launchDate, windowID: id, title: title,
                     document: attribute(window, kAXDocumentAttribute) as? String,
-                    identifier: attribute(window, kAXIdentifierAttribute) as? String), element: window, frame: rect))
+                    identifier: attribute(window, kAXIdentifierAttribute) as? String,
+                    contextKeys: contexts.isEmpty ? nil : contexts)
+                let reason = unsupportedReason(window) ?? (app.isHidden ? "application is hidden" : nil)
+                if let reason {
+                    result.excluded.append((identity, reason)); result.omissions.append("\(label): \(reason)"); continue
+                }
+                guard let rect = frame(window) else {
+                    result.excluded.append((identity, "bounds could not be read"))
+                    result.omissions.append("\(label): bounds could not be read"); continue
+                }
+                result.windows.append(LiveWindow(identity: identity, element: window, frame: rect))
             }
             cached[app.processIdentifier] = (app.launchDate, liveElements)
             let unexposed = cgIDs.subtracting(seen)
-            if !unexposed.isEmpty { result.omissions.append("\(name): \(unexposed.count) window(s) could not be inspected; visit their Spaces and Remember again") }
+            status.uninspectedCount = unexposed.count
+            result.applications[bundleID] = status
+            if !unexposed.isEmpty { result.omissions.append("\(name): \(unexposed.count) window(s) could not be inspected; visit their Spaces and retry") }
+            if windowListStatus != .success {
+                result.omissions.append("\(name): window list could not be read (Accessibility error \(windowListStatus.rawValue))")
+            }
         }
         return result
     }

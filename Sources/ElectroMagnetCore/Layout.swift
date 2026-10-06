@@ -37,10 +37,12 @@ public struct WindowIdentity: Codable, Equatable {
     public var title: String
     public var document: String?
     public var identifier: String?
+    public var contextKeys: [String]?
     public init(bundleID: String, appName: String, pid: Int32, processStarted: Date?, windowID: UInt32,
-                title: String, document: String? = nil, identifier: String? = nil) {
+                title: String, document: String? = nil, identifier: String? = nil, contextKeys: [String]? = nil) {
         self.bundleID = bundleID; self.appName = appName; self.pid = pid; self.processStarted = processStarted
         self.windowID = windowID; self.title = title; self.document = document; self.identifier = identifier
+        self.contextKeys = contextKeys
     }
 }
 

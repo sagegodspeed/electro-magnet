@@ -89,7 +89,12 @@ enum RuntimeError: LocalizedError {
         unsafeBitCast(operation.method(for: performSelector), to: Perform.self)(operation, performSelector)
         for _ in 0..<75 {
             try await Task.sleep(nanoseconds: 20_000_000)
-            if windowSpaces(windowID) == [target] { withExtendedLifetime(operation) {}; return }
+            if windowSpaces(windowID) == [target] {
+                // Space membership updates before macOS finishes translating the
+                // window's coordinates between displays. Wait before resizing it.
+                try await Task.sleep(nanoseconds: 250_000_000)
+                withExtendedLifetime(operation) {}; return
+            }
         }
         withExtendedLifetime(operation) {}
         throw RuntimeError.message("macOS did not move the window to its saved Space.")

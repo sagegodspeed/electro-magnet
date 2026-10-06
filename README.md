@@ -10,7 +10,7 @@ Electro Magnet is a lightweight native menu-bar utility. Arrange your existing w
 
 ## Download
 
-[Download the Apple Silicon development preview](https://github.com/sagegodspeed/electro-magnet/releases/download/v0.1.0-preview/Electro-Magnet-0.1.0-preview-arm64.zip) · [Release notes](https://github.com/sagegodspeed/electro-magnet/releases/tag/v0.1.0-preview)
+[Download the Apple Silicon development preview](https://github.com/sagegodspeed/electro-magnet/releases/download/v0.1.1-preview/Electro-Magnet-0.1.1-preview-arm64.zip) · [Release notes](https://github.com/sagegodspeed/electro-magnet/releases/tag/v0.1.1-preview)
 
 The preview is ad-hoc signed and **not notarized**. Gatekeeper may block a downloaded copy. A Developer ID–signed, notarized release is pending; building from source is the developer route today. Tested on macOS 27 / Apple Silicon. See [compatibility and distribution](docs/COMPATIBILITY.md).
 
@@ -28,6 +28,7 @@ Each layout supports **Overwrite with Current Layout**, **Rename** and **Delete*
 - Displays are matched by UUID, not enumeration order.
 - Missing displays or Spaces use an available destination and retain the saved assignment for a later Restore.
 - Windows require reliable identity matches; ambiguous matches and missing/unsupported windows are skipped.
+- After an application relaunch, Chrome/Edge profile labels and recognized mail/Teams account labels help match changed titles. Browser tab labels can distinguish windows in the same profile. Duplicate matches remain skipped; Last Result gives the reason.
 - Native fullscreen, minimized, hidden-app, panel and all-desktop windows are excluded.
 - Usable screen bounds and application minimum sizes are respected; read-back checks actual geometry and Space assignment.
 - Some inactive-Space browser windows require visiting their Space once after starting the utility. Last Result reports omissions.
@@ -52,7 +53,7 @@ See [testing](docs/TESTING.md) for recorded results and remaining physical accep
 
 ## Privacy
 
-Layouts are stored locally in `~/Library/Application Support/ElectroMagnet/layouts.json`. They can contain window titles, document identifiers, application identifiers, bounds and monitor/Space destinations. The app has no accounts, analytics, cloud sync, ads or network data transmission. Accessibility permission is used for inspecting windows and explicitly requested Restore actions.
+Layouts are stored locally in `~/Library/Application Support/ElectroMagnet/layouts.json`. They can contain window titles, document identifiers, application identifiers, account hints from browser tab labels, bounds and monitor/Space destinations. Tab inspection reads browser controls only, skips webpage content and never selects a tab. The app has no accounts, analytics, cloud sync, ads or network data transmission. Accessibility permission is used for inspecting windows and explicitly requested Restore actions.
 
 Saved user layouts, raw machine-specific test evidence and credentials are excluded from the public repository.
 
