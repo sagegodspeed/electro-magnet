@@ -70,16 +70,20 @@ struct RestoreReport {
                 adjustments.append("\(saved.displayName) disconnected; using \(display.name). Saved destination retained")
             }
             let onDisplay = desktops.filter { $0.displayUUID.caseInsensitiveCompare(display.uuid) == .orderedSame }
+            let spaceMatch = SpaceMatcher.match(saved.space, displayUUID: display.uuid, in: desktops,
+                bootSession: Self.bootSession,
+                allowPosition: display.uuid.caseInsensitiveCompare(saved.displayUUID) == .orderedSame)
             let savedSpace: DesktopSpace?
-            if let uuid = saved.space.uuid {
-                savedSpace = onDisplay.first { $0.uuid == uuid }
-            } else if !saved.space.bootSession.isEmpty && saved.space.bootSession == Self.bootSession {
-                savedSpace = onDisplay.first { $0.id == saved.space.sessionID }
-            } else { savedSpace = nil }
+            switch spaceMatch {
+            case .identity(let index), .position(let index): savedSpace = desktops[index]
+            case .missing: savedSpace = nil
+            }
             guard let targetSpace = savedSpace ?? onDisplay.first(where: \.isCurrent) ?? onDisplay.first else {
                 report.skipped += 1; report.details.append("\(label): skipped, no ordinary desktop Space on the available monitor"); continue
             }
-            if savedSpace == nil {
+            if case .position = spaceMatch {
+                adjustments.append("saved Space identity unavailable; using saved desktop position \(targetSpace.ordinal). Saved assignment retained")
+            } else if savedSpace == nil {
                 adjustments.append("saved Space unavailable; using desktop \(targetSpace.ordinal). Saved assignment retained")
             }
             let originalTarget = WindowFrame(x: display.usable.x + saved.relativeFrame.x, y: display.usable.y + saved.relativeFrame.y,
@@ -150,10 +154,28 @@ struct RestoreReport {
     /// Read-only inspection uses exactly the same discovery and matching as Restore.
     func diagnostics(_ layout: Layout) throws -> [String: Any] {
         let inventory = try WindowAccess.inventory(onlyPID: onlyPID)
+        let displays = WindowAccess.displays()
+        let desktops = try spaces.desktops()
         let matches = WindowMatcher.matches(layout.windows.map(\.identity), in: inventory.identities)
         let rows = zip(layout.windows, matches).map { saved, match -> [String: Any] in
             var row: [String: Any] = ["application": saved.identity.appName, "savedWindowID": saved.identity.windowID,
                                      "reason": skipReason(saved.identity, match: match, inventory: inventory) ?? "matchable"]
+            if let display = displays.first(where: { $0.uuid == saved.displayUUID }) ?? displays.first {
+                let spaceMatch = SpaceMatcher.match(saved.space, displayUUID: display.uuid, in: desktops,
+                    bootSession: Self.bootSession,
+                    allowPosition: display.uuid.caseInsensitiveCompare(saved.displayUUID) == .orderedSame)
+                let target: DesktopSpace?
+                switch spaceMatch {
+                case .identity(let index): target = desktops[index]; row["spaceMatch"] = "identity"
+                case .position(let index): target = desktops[index]; row["spaceMatch"] = "saved desktop position"
+                case .missing:
+                    let available = desktops.filter { $0.displayUUID.caseInsensitiveCompare(display.uuid) == .orderedSame }
+                    target = available.first(where: \.isCurrent) ?? available.first
+                    row["spaceMatch"] = "available desktop"
+                }
+                row["targetDesktopPosition"] = target?.ordinal
+                row["targetDisplayName"] = display.name
+            }
             row["currentWindows"] = inventory.identities.enumerated().filter { $0.element.bundleID == saved.identity.bundleID }.map { index, window in
                 ["windowID": window.windowID, "title": window.title, "document": window.document ?? "",
                  "identifier": window.identifier ?? "", "browserProfile": WindowMatcher.browserProfile(window) ?? "",

@@ -10,6 +10,8 @@ Recorded local verification on 2026-10-05: 16 core tests passed. Coverage includ
 
 On 2026-10-06, all 36 core tests passed. Added regression cases cover Chrome/Edge profiles after relaunch and tab changes, identical URLs in different profiles, duplicate profile/account windows, account hints from open browser tabs, changed Outlook folders and Teams banners, Gemini conversation changes, legacy layout decoding and context persistence. No geometry or list-order fallback is used. The test scratch directory is outside Documents to prevent file-provider Finder metadata from invalidating signed XCTest bundles.
 
+On 2026-10-07, all 46 core tests passed. Ten Space-matching regression cases cover surviving UUIDs after desktop reordering, UUID case differences, same-boot session identity, replaced/reused IDs, cross-boot fallback, original-monitor desktop positions, missing/disconnected destinations and ambiguous positions.
+
 ## Disposable live tests
 
 `Tools/TestWindows.swift` creates two ordinary windows and an unsupported panel in a separate fixture app. `Tools/SpaceProbe.swift` is a standalone feasibility probe. The app's `--integration-test` mode accepts only a PID whose bundle identifier is `com.jeremyscott.ElectroMagnet.Fixture`, restricts inventory to that PID, and writes test layouts to the supplied evidence directory.
@@ -21,6 +23,8 @@ Launch the fixture through macOS application services so its process launch date
 Recorded local verification on 2026-10-05: eight integration checks passed on macOS 27 / Apple Silicon. They covered two-monitor capture, inactive-Space capture, restoration after reloading the store/engine and changing titles, switching layouts, a missing window, application minimum sizes, simulated missing-monitor fallback, and returning to the remembered destination. Geometry and Space assignment were read back.
 
 On 2026-10-06, all 11 disposable integration checks passed. Three added checks verify ambiguous matches remain unmoved, a closed application gets a specific reason, and minimized windows get a specific reason. Cross-display Space transitions now wait for macOS to finish translating window coordinates before the next resize; the fixture's original geometry restored exactly.
+
+On 2026-10-07, all 13 disposable integration checks passed. The two added checks replace saved Space identities with synthetic stale IDs and verify movement to each monitor's saved desktop position, then verify an unavailable desktop position uses an available Space. Actual Space membership and geometry were read back, and the persisted fixture layouts stayed byte-for-byte unchanged. No working windows were moved by these checks.
 
 The same update matched 16 of 19 windows in an existing local layout using read-only live diagnostics. The remaining three were a closed application, an application exposing no ordinary window and an inaccessible browser profile. This verifies discovery and matching, rather than movement of those working windows. The saved layout remained byte-for-byte unchanged. Machine-specific titles and account names are not included here.
 
@@ -40,6 +44,8 @@ Before a general-public release, check:
 The icon has been compiled into ICNS, unpacked and checked at all ten standard sizes. Resource/Info.plist packaging and strict signing were verified in an isolated copy of the previously tested executable. The artwork update did not change Swift source. Xcode's license prompt initially blocked a fresh build on 2026-10-06; a later build using the separately installed Command Line Tools passed. The installed working app was not replaced.
 
 For the 0.1.1 matching fix, Xcode subsequently became available and a fresh build and XCTest run passed. App and fixture signing now use temporary staging folders outside file-provider directories. The update was installed at the stable local Applications path with a backup of the previous app, strict signature verification and renewed Accessibility approval. Installed read-only diagnostics confirmed the same 16 matches; saved layouts remained unchanged. The user's working windows were not moved during this verification.
+
+For 0.1.2, read-only diagnostics against the existing local layout selected the approved saved desktop positions for the two affected applications on their original monitor. All 19 saved entries and the layout file bytes were preserved. These diagnostics verify target selection; disposable tests verify movement.
 
 ## Read-only local diagnostics
 

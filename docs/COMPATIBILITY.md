@@ -8,6 +8,8 @@ The window geometry and UI use AppKit and Accessibility. Display identity uses U
 
 Space restoration requires `SLSBridgedMoveWindowsToManagedSpaceOperation`. If it is unavailable, windows that need a Space change are skipped. There is no SIP change, injected scripting addition, privileged helper, or Screen Recording requirement.
 
+Space matching prefers a surviving UUID, then a session ID when no UUID was saved and the boot session is unchanged. If the identity is gone, Restore uses the saved ordinary-desktop position on the original monitor. This is reported as adjusted and leaves the saved assignment intact. If that position or monitor is missing, an available Space is used. No desktop is created or reordered. Manual desktop reordering can change the meaning of a position; surviving UUIDs still take priority.
+
 Public Accessibility lists can omit inactive-Space windows. The app combines bounded root discovery with a read-only cache as the user visits Spaces. Some browser windows still need their Space visited once after launching the app. Last Result reports omissions. The reported uninspected count may include backing windows and should not be interpreted as an exact count of missing ordinary windows.
 
 ## Mac App Store
@@ -23,3 +25,5 @@ The initial download is a development preview for Apple Silicon. It is ad-hoc si
 A general-public binary release should use Developer ID signing, hardened runtime, a secure timestamp and Apple notarization, with the ticket stapled to the distribution package. See [Developer ID signing](https://developer.apple.com/developer-id/) and [Notarizing macOS software](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
 
 Ad-hoc rebuilds change the app signature and can invalidate an earlier Accessibility approval. Keep the app at a stable location and renew only its own permission entry through System Settings if necessary.
+
+If the switch is enabled but the menu-bar app still reports missing permission, remove only Electro Magnet's stale entry, add the installed app again, and relaunch it. Verify Restore is enabled in the menu. A terminal-launched diagnostic process does not establish permission for the separate menu-bar process.

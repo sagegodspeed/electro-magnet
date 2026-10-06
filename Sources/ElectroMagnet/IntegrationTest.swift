@@ -57,6 +57,29 @@ import ElectroMagnetCore
             steps.append(["test": "restore-first-after-utility-restart-and-title-change", "passed": reportA.restored == 2 && reportA.skipped == 0, "report": reportA.text])
             let reportB = try await freshEngine.restore(restarted.layouts[1])
             steps.append(["test": "switch-to-second-layout", "passed": reportB.restored == 2 && reportB.skipped == 0, "report": reportB.text])
+            var recreatedSpaces = first
+            var expectedSpaces: [UInt32: UInt64] = [:]
+            for index in recreatedSpaces.windows.indices {
+                let saved = recreatedSpaces.windows[index]
+                guard let destination = desktops.last(where: { $0.displayUUID == saved.displayUUID }) else {
+                    throw RuntimeError.message("No fixture desktop destination found.")
+                }
+                recreatedSpaces.windows[index].space = SpaceDestination(uuid: "missing-test-space", sessionID: UInt64.max,
+                    ordinal: destination.ordinal, bootSession: "previous-test-boot")
+                expectedSpaces[saved.identity.windowID] = destination.id
+            }
+            let persistedBefore = try Data(contentsOf: store.url)
+            let recreatedReport = try await freshEngine.restore(recreatedSpaces)
+            let persistedUnchanged = try Data(contentsOf: store.url) == persistedBefore
+            steps.append(["test": "missing-space-identity-restores-saved-position", "passed": recreatedReport.adjusted == 2 && recreatedReport.skipped == 0 &&
+                expectedSpaces.allSatisfy { freshEngine.spaces.windowSpaces($0.key) == [$0.value] } &&
+                persistedUnchanged, "report": recreatedReport.text])
+            var missingPosition = recreatedSpaces
+            missingPosition.windows = [recreatedSpaces.windows[0]]
+            missingPosition.windows[0].space.ordinal = Int.max
+            let missingPositionReport = try await freshEngine.restore(missingPosition)
+            steps.append(["test": "missing-desktop-position-uses-available-space", "passed": missingPositionReport.adjusted == 1 && missingPositionReport.skipped == 0 &&
+                missingPositionReport.text.contains("saved Space unavailable"), "report": missingPositionReport.text])
             var ambiguous = first
             for index in ambiguous.windows.indices {
                 ambiguous.windows[index].identity.pid = -1

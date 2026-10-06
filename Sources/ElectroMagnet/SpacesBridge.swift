@@ -2,14 +2,6 @@ import AppKit
 import Darwin
 import ElectroMagnetCore
 
-struct DesktopSpace {
-    let id: UInt64
-    let uuid: String?
-    let displayUUID: String
-    let ordinal: Int
-    let isCurrent: Bool
-}
-
 enum RuntimeError: LocalizedError {
     case message(String)
     var errorDescription: String? { if case .message(let text) = self { return text }; return nil }

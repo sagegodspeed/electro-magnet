@@ -10,7 +10,7 @@ Electro Magnet is a lightweight native menu-bar utility. Arrange your existing w
 
 ## Download
 
-[Download the Apple Silicon development preview](https://github.com/sagegodspeed/electro-magnet/releases/download/v0.1.1-preview/Electro-Magnet-0.1.1-preview-arm64.zip) · [Release notes](https://github.com/sagegodspeed/electro-magnet/releases/tag/v0.1.1-preview)
+[Download the Apple Silicon development preview](https://github.com/sagegodspeed/electro-magnet/releases/download/v0.1.2-preview/Electro-Magnet-0.1.2-preview-arm64.zip) · [Release notes](https://github.com/sagegodspeed/electro-magnet/releases/tag/v0.1.2-preview)
 
 The preview is ad-hoc signed and **not notarized**. Gatekeeper may block a downloaded copy. A Developer ID–signed, notarized release is pending; building from source is the developer route today. Tested on macOS 27 / Apple Silicon. See [compatibility and distribution](docs/COMPATIBILITY.md).
 
@@ -27,6 +27,7 @@ Each layout supports **Overwrite with Current Layout**, **Rename** and **Delete*
 
 - Displays are matched by UUID, not enumeration order.
 - Missing displays or Spaces use an available destination and retain the saved assignment for a later Restore.
+- If a saved Space identity disappears, Restore uses its saved desktop position on the original monitor when that position still exists. Surviving Space identities take priority over desktop order. This is reported as adjusted; desktop positions can refer to different Spaces after manual reordering.
 - Windows require reliable identity matches; ambiguous matches and missing/unsupported windows are skipped.
 - After an application relaunch, Chrome/Edge profile labels and recognized mail/Teams account labels help match changed titles. Browser tab labels can distinguish windows in the same profile. Duplicate matches remain skipped; Last Result gives the reason.
 - Native fullscreen, minimized, hidden-app, panel and all-desktop windows are excluded.
